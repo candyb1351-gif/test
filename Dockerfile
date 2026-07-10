@@ -1,23 +1,20 @@
-FROM alpine:3.20
+FROM golang:1.22-alpine AS build
 
-# نصب ابزار build و کامپایل microsocks
-RUN apk add --no-cache git build-base \
-    && git clone https://github.com/rofl0r/microsocks.git /src \
-    && cd /src && make \
-    && cp microsocks /usr/local/bin/microsocks \
-    && apk del git build-base \
-    && rm -rf /src
+RUN apk add --no-cache git \
+    && git clone --depth 1 https://github.com/9seconds/mtg.git /src
+WORKDIR /src
+RUN go build -o /mtg .
+
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates
+COPY --from=build /mtg /usr/local/bin/mtg
 
 # پورت داخلی که Railway TCP Proxy بهش وصل می‌شه
 ENV PORT=8080
+# دامنه‌ای که ترافیک باید شبیهش باشه (Fake-TLS)
+ENV FAKE_TLS_DOMAIN=www.yahoo.com
 
-# اگر می‌خوای auth هم بذاری، این دو متغیر رو در Railway ست کن
-# SOCKS_USER و SOCKS_PASS
-# اگر خالی بمونن، سرور بدون احراز هویت (باز) اجرا می‌شه
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-CMD sh -c '\
-    if [ -n "$SOCKS_USER" ] && [ -n "$SOCKS_PASS" ]; then \
-      microsocks -i 0.0.0.0 -p $PORT -u "$SOCKS_USER" -P "$SOCKS_PASS"; \
-    else \
-      microsocks -i 0.0.0.0 -p $PORT; \
-    fi'
+CMD ["/entrypoint.sh"]
