@@ -1,5 +1,6 @@
 FROM golang:1.22-alpine AS build
 
+ENV GOTOOLCHAIN=auto
 RUN apk add --no-cache git \
     && git clone --depth 1 https://github.com/9seconds/mtg.git /src
 WORKDIR /src
